@@ -3,6 +3,7 @@
 """
 Unit tesztek a simple_pursuit.py matematikai függvényeihez
 """
+#python -m pytest tests/test_simple_pursuit.py -v
 
 import pytest
 import math

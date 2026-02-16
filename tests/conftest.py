@@ -5,7 +5,7 @@ pytest konfiguráció - mock ROS modulok
 import sys
 from unittest.mock import MagicMock
 
-# Mock-oljuk a ROS modulokat, mielőtt bármit importálnánk
+# ROS modulok Mock-olása
 sys.modules['rospy'] = MagicMock()
 sys.modules['tf2_ros'] = MagicMock()
 sys.modules['tf2_geometry_msgs'] = MagicMock()

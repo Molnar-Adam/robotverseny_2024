@@ -1,0 +1,78 @@
+<?xml version="1.0"?>
+<!--
+ROS Integration Test: Full Control Pipeline
+============================================
+
+Ez a teszt a TELJES vezérlési láncot ellenőrzi:
+    /scan → pid_error.py → /error → control.py → /cmd_vel
+
+Két node fut egyidejűleg:
+    1. pid_error.py - LIDAR → error
+    2. control.py - error → motor parancs
+
+A teszt szimulált LIDAR adatot küld és ellenőrzi a végső kimenetet.
+-->
+<launch>
+    <!-- 
+    ===================================================
+    NODE 1: pid_error.py
+    ===================================================
+    Fogadja: /scan (LaserScan)
+    Publikál: /error (PidState)
+    -->
+    <node 
+        pkg="megoldas_gyor24" 
+        type="pid_error.py" 
+        name="pid_error" 
+        output="screen">
+    </node>
+    
+    <!-- 
+    ===================================================
+    NODE 2: control.py
+    ===================================================
+    Fogadja: /error (PidState)
+    Publikál: /cmd_vel (Twist)
+    
+    Ez a control.py-nak szüksége van a globális paraméterekre:
+        - kp, kd, ki (PID paraméterek)
+        - servo_offset
+        - mode (simple/nonsimple)
+    
+    Ezeket a launch fájlban paraméterként adhatjuk át.
+    -->
+    <node 
+        pkg="megoldas_gyor24" 
+        type="control.py" 
+        name="control" 
+        output="screen">
+        
+        <!-- 
+        PID paraméterek beállítása
+        Ezek a paraméterek a control.py-ban rospy.get_param()-mal olvashatók
+        -->
+        <param name="kp" value="10.0"/>
+        <param name="kd" value="0.01"/>
+        <param name="ki" value="0.0"/>
+        <param name="kp_vel" value="42.0"/>
+        <param name="servo_offset" value="0.314159"/>  <!-- 18° radiánban -->
+    </node>
+    
+    <!-- 
+    ===================================================
+    TESZT NODE
+    ===================================================
+    Ez ellenőrzi, hogy a fenti 2 node együtt helyesen működik-e
+    -->
+    <test 
+        test-name="control_pipeline_integration_test" 
+        pkg="megoldas_gyor24" 
+        type="test_control_pipeline.py"
+        time-limit="90.0">
+        <!-- 
+        Hosszabb timeout (90s), mert 2 node-ot kell inicializálni
+        és több tesztet futtatunk
+        -->
+    </test>
+    
+</launch>
