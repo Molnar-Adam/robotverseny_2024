@@ -19,8 +19,7 @@ import rostest
 from sensor_msgs.msg import LaserScan
 from control_msgs.msg import PidState
 
-# Timeout konstansok
-MSG_TIMEOUT = 10.0  # Másodpercek, amíg várunk egy üzenetre
+MSG_TIMEOUT = 10.0  
 
 
 class TestPidErrorNode(unittest.TestCase):
@@ -36,29 +35,23 @@ class TestPidErrorNode(unittest.TestCase):
         - Inicializálja a ROS node-ot (test_pid_error_node néven)
         - Beállítja az üzenet tárolókat (None = még nem érkezett)
         """
-        # ROS node inicializáció teszteléshez
-        # anonymous=True → egyedi név generálás (pl. test_pid_error_node_12345)
         rospy.init_node('test_pid_error_node', anonymous=True)
         
-        # Üzenet tárolók (itt fogjuk tárolni, amit a node-ok küldenek)
         self.received_error_msg = None
         self.error_msg_received = False
         
-        # Feliratkozunk az /error topicra, hogy lássuk, mit publikál a pid_error.py
         self.error_subscriber = rospy.Subscriber(
             '/error', 
             PidState, 
             self.error_callback
         )
         
-        # Publisher a /scan topicra, hogy szimulált LIDAR adatot küldjünk
         self.scan_publisher = rospy.Publisher(
             '/scan', 
             LaserScan, 
             queue_size=10
         )
         
-        # Várjunk egy kicsit, hogy a node-ok inicializálódjanak
         rospy.sleep(1.0)
         
         rospy.loginfo("TestPidErrorNode setUp completed")
@@ -89,7 +82,6 @@ class TestPidErrorNode(unittest.TestCase):
         scan.header.stamp = rospy.Time.now()
         scan.header.frame_id = "base_laser"
         
-        # LIDAR paraméterek (360° felbontás, 1° lépésközzel)
         scan.angle_min = 0.0
         scan.angle_max = 6.28319  # ~2π radiánban
         scan.angle_increment = 0.0174533  # ~1° radiánban
@@ -98,23 +90,17 @@ class TestPidErrorNode(unittest.TestCase):
         scan.range_min = 0.02
         scan.range_max = 10.0
         
-        # 360 elemű tömb inicializálása alapértelmezett értékkel
         scan.ranges = [5.0] * 360
         
-        # Beállítjuk a fontos irányokat:
-        # 0° = jobbra, 90° = előre, 180° = balra (lásd getRange() függvényt)
-        scan.ranges[90] = right_distance   # 0° -> index 90
-        scan.ranges[180] = front_distance  # 90° -> index 180
-        scan.ranges[270] = left_distance   # 180° -> index 270
+        scan.ranges[90] = right_distance  
+        scan.ranges[180] = front_distance  
+        scan.ranges[270] = left_distance   
         
-        # Intenzitás értékek (opcionális)
         scan.intensities = []
         
         return scan
     
-    # ============================================
     # TESZT 1: Node Inicializáció
-    # ============================================
     
     def test_1_node_initialization(self):
         """
@@ -126,20 +112,14 @@ class TestPidErrorNode(unittest.TestCase):
         """
         rospy.loginfo("=== TEST 1: Node Initialization ===")
         
-        # Lekérjük az aktív topic-ok listáját
         topics = rospy.get_published_topics()
         topic_names = [topic[0] for topic in topics]
-        
-        # Ellenőrizzük, hogy az /error topic létezik-e
-        # Ha a pid_error.py fut, akkor publikál erre a topicra
         self.assertIn('/error', topic_names, 
                       "A pid_error.py node nem publikál az /error topicra!")
         
         rospy.loginfo("✓ A pid_error.py node sikeresen elindult és publikál az /error topicra")
     
-    # ============================================
     # TESZT 2: Szimmetrikus Fallkövetés
-    # ============================================
     
     def test_2_symmetric_wall_following(self):
         """
@@ -152,43 +132,34 @@ class TestPidErrorNode(unittest.TestCase):
         """
         rospy.loginfo("=== TEST 2: Symmetric Wall Following ===")
         
-        # Üzenet tárolók resetelése
         self.received_error_msg = None
         self.error_msg_received = False
         
-        # Szimulált LIDAR adat: bal és jobb oldal is 2.0m
         mock_scan = self.create_mock_scan(
             front_distance=3.0,
-            left_distance=2.0,   # Bal oldal
-            right_distance=2.0   # Jobb oldal
+            left_distance=2.0,  
+            right_distance=2.0  
         )
         
-        # Publikáljuk a szimulált scan-t
         rospy.loginfo("Publikálok szimulált LaserScan-t: bal=2.0m, jobb=2.0m")
         self.scan_publisher.publish(mock_scan)
         
-        # Várunk, hogy a pid_error.py feldolgozza és publikáljon /error-t
         timeout = rospy.Time.now() + rospy.Duration(MSG_TIMEOUT)
-        rate = rospy.Rate(10)  # 10 Hz ellenőrzés
+        rate = rospy.Rate(10) 
         
         while not self.error_msg_received and rospy.Time.now() < timeout:
             rate.sleep()
         
-        # Ellenőrizzük, hogy érkezett-e üzenet
         self.assertTrue(self.error_msg_received, 
                         "Nem érkezett PidState üzenet az /error topicra!")
         
-        # Ellenőrizzük, hogy az error értéke ~0
-        # followSimple: error = (left - right) * 0.3 = (2.0 - 2.0) * 0.3 = 0.0
         self.assertIsNotNone(self.received_error_msg)
         self.assertAlmostEqual(self.received_error_msg.error, 0.0, places=2,
                                msg=f"Szimmetrikus esetben az error ~0 kellene legyen, de {self.received_error_msg.error}")
         
         rospy.loginfo(f"✓ Szimmetrikus eset: error = {self.received_error_msg.error} ≈ 0.0")
     
-    # ============================================
     # TESZT 3: Aszimmetrikus Fallkövetés (bal közelebb)
-    # ============================================
     
     def test_3_left_closer_wall_following(self):
         """
@@ -203,17 +174,15 @@ class TestPidErrorNode(unittest.TestCase):
         self.received_error_msg = None
         self.error_msg_received = False
         
-        # Bal oldal közelebb
         mock_scan = self.create_mock_scan(
             front_distance=3.0,
-            left_distance=1.0,   # Bal közelebb
-            right_distance=3.0   # Jobb távolabb
+            left_distance=1.0,   
+            right_distance=3.0   
         )
         
         rospy.loginfo("Publikálok szimulált LaserScan-t: bal=1.0m, jobb=3.0m")
         self.scan_publisher.publish(mock_scan)
         
-        # Várunk az /error üzenetre
         timeout = rospy.Time.now() + rospy.Duration(MSG_TIMEOUT)
         rate = rospy.Rate(10)
         
@@ -223,16 +192,13 @@ class TestPidErrorNode(unittest.TestCase):
         self.assertTrue(self.error_msg_received, 
                         "Nem érkezett PidState üzenet!")
         
-        # Ellenőrizzük: error = (1.0 - 3.0) * 0.3 = -0.6
-        expected_error = (1.0 - 3.0) * 0.3  # = -0.6
+        expected_error = (1.0 - 3.0) * 0.3 
         self.assertAlmostEqual(self.received_error_msg.error, expected_error, places=1,
                                msg=f"Bal közelebb esetén error={expected_error} kellene legyen")
         
         rospy.loginfo(f"✓ Bal közelebb: error = {self.received_error_msg.error} ≈ {expected_error}")
     
-    # ============================================
     # TESZT 4: Jobb oldal közelebb
-    # ============================================
     
     def test_4_right_closer_wall_following(self):
         """
@@ -249,8 +215,8 @@ class TestPidErrorNode(unittest.TestCase):
         
         mock_scan = self.create_mock_scan(
             front_distance=3.0,
-            left_distance=2.5,   # Bal távolabb
-            right_distance=1.5   # Jobb közelebb
+            left_distance=2.5,   
+            right_distance=1.5   
         )
         
         rospy.loginfo("Publikálok szimulált LaserScan-t: bal=2.5m, jobb=1.5m")
@@ -265,7 +231,6 @@ class TestPidErrorNode(unittest.TestCase):
         self.assertTrue(self.error_msg_received, 
                         "Nem érkezett PidState üzenet!")
         
-        # error = (2.5 - 1.5) * 0.3 = 0.3
         expected_error = (2.5 - 1.5) * 0.3
         self.assertAlmostEqual(self.received_error_msg.error, expected_error, places=1,
                                msg=f"Jobb közelebb esetén error={expected_error} kellene legyen")
@@ -283,7 +248,7 @@ if __name__ == '__main__':
         - 3. paraméter: teszt osztály
     """
     rostest.rosrun(
-        'megoldas_gyor24',  # Csomagunk neve
-        'test_pid_error_node',  # Teszt azonosító
+        'megoldas_gyor24', 
+        'test_pid_error_node', 
         TestPidErrorNode
     )

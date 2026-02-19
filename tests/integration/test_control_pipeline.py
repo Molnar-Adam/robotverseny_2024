@@ -42,7 +42,6 @@ class TestControlPipeline(unittest.TestCase):
         """
         rospy.init_node('test_control_pipeline', anonymous=True)
         
-        # Üzenet tárolók
         self.received_error_msg = None
         self.error_received = False
         
@@ -69,7 +68,7 @@ class TestControlPipeline(unittest.TestCase):
             queue_size=10
         )
         
-        rospy.sleep(2.0)  # Hosszabb várakozás 2 node inicializálásához
+        rospy.sleep(2.0)
         rospy.loginfo("TestControlPipeline setUp completed")
     
     def error_callback(self, msg):
@@ -100,9 +99,9 @@ class TestControlPipeline(unittest.TestCase):
         scan.range_max = 10.0
         
         scan.ranges = [5.0] * 360
-        scan.ranges[90] = right    # 0° -> index 90
-        scan.ranges[180] = front   # 90° -> index 180
-        scan.ranges[270] = left    # 180° -> index 270
+        scan.ranges[90] = right   
+        scan.ranges[180] = front  
+        scan.ranges[270] = left    
         
         return scan
     
@@ -117,7 +116,6 @@ class TestControlPipeline(unittest.TestCase):
         rate = rospy.Rate(10)
         
         while rospy.Time.now() < timeout:
-            # Ellenőrizzük, hogy minden szükséges üzenet megérkezett-e
             error_ok = self.error_received
             cmd_vel_ok = self.cmd_vel_received if wait_for_cmd_vel else True
             
@@ -127,13 +125,10 @@ class TestControlPipeline(unittest.TestCase):
             
             rate.sleep()
         
-        # Timeout lejárt
         rospy.logwarn(f"Timeout! error_received={self.error_received}, cmd_vel_received={self.cmd_vel_received}")
         return False
     
-    # ============================================
     # TESZT 1: Pipeline Alapvető Működés
-    # ============================================
     
     def test_1_pipeline_basic_functionality(self):
         """
@@ -146,29 +141,23 @@ class TestControlPipeline(unittest.TestCase):
         """
         rospy.loginfo("=== TEST 1: Pipeline Basic Functionality ===")
         
-        # Reset
         self.error_received = False
         self.cmd_vel_received = False
         
-        # Szimmetrikus eset
         mock_scan = self.create_mock_scan(front=3.0, left=2.0, right=2.0)
         
         rospy.loginfo("Publikálok szimulált scan-t a pipeline-ba...")
         self.scan_publisher.publish(mock_scan)
         
-        # Várunk, hogy a TELJES pipeline feldolgozza
         success = self.wait_for_messages(wait_for_cmd_vel=True)
         
-        # Assertions
         self.assertTrue(success, "A pipeline nem dolgozta fel a scan-t időben!")
         self.assertTrue(self.error_received, "A pid_error.py nem publikált /error üzenetet!")
         self.assertTrue(self.cmd_vel_received, "A control.py nem publikált /cmd_vel üzenetet!")
         
         rospy.loginfo("✓ A teljes pipeline működik: /scan → /error → /cmd_vel")
     
-    # ============================================
     # TESZT 2: Szimmetrikus Eset (nincs hiba)
-    # ============================================
     
     def test_2_symmetric_zero_error(self):
         """
@@ -184,7 +173,6 @@ class TestControlPipeline(unittest.TestCase):
         self.error_received = False
         self.cmd_vel_received = False
         
-        # Szimmetrikus adat
         mock_scan = self.create_mock_scan(front=3.0, left=2.5, right=2.5)
         
         rospy.loginfo("Publikálok szimmetrikus scan-t: bal=2.5m, jobb=2.5m")
@@ -193,13 +181,9 @@ class TestControlPipeline(unittest.TestCase):
         success = self.wait_for_messages(wait_for_cmd_vel=True)
         self.assertTrue(success, "Timeout a szimmetrikus esetben!")
         
-        # Ellenőrizzük az error értéket
-        # followSimple: error = (2.5 - 2.5) * 0.3 = 0.0
         self.assertAlmostEqual(self.received_error_msg.error, 0.0, places=1,
                                msg="Szimmetrikus esetben error ≈ 0 kellene legyen")
         
-        # Ellenőrizzük a cmd_vel-t
-        # Ha error ≈ 0 → sebesség magas kellene legyen (simple mode)
         self.assertGreater(self.received_cmd_vel_msg.linear.x, 0.0,
                            msg="Szimmetrikus esetben a robot mozogjon előre!")
         
@@ -207,9 +191,7 @@ class TestControlPipeline(unittest.TestCase):
                       f"velocity={self.received_cmd_vel_msg.linear.x:.3f} m/s, "
                       f"steering={self.received_cmd_vel_msg.angular.z:.3f} rad")
     
-    # ============================================
     # TESZT 3: Jobb forduló (bal fal közelebb)
-    # ============================================
     
     def test_3_turn_right_left_wall_closer(self):
         """
@@ -224,7 +206,6 @@ class TestControlPipeline(unittest.TestCase):
         self.error_received = False
         self.cmd_vel_received = False
         
-        # Bal oldal közelebb
         mock_scan = self.create_mock_scan(front=3.0, left=1.0, right=3.0)
         
         rospy.loginfo("Publikálok aszimmetrikus scan-t: bal=1.0m (közel), jobb=3.0m (távol)")
@@ -233,16 +214,13 @@ class TestControlPipeline(unittest.TestCase):
         success = self.wait_for_messages(wait_for_cmd_vel=True)
         self.assertTrue(success, "Timeout!")
         
-        # error = (1.0 - 3.0) * 0.3 = -0.6 (negatív!)
         self.assertLess(self.received_error_msg.error, 0.0,
                         msg="Bal fal közelebb → error negatív kellene legyen")
         
         rospy.loginfo(f"✓ Bal fal közelebb: error={self.received_error_msg.error:.3f} < 0, "
                       f"steering={self.received_cmd_vel_msg.angular.z:.3f} rad")
     
-    # ============================================
     # TESZT 4: Bal forduló (jobb fal közelebb)
-    # ============================================
     
     def test_4_turn_left_right_wall_closer(self):
         """
@@ -257,7 +235,6 @@ class TestControlPipeline(unittest.TestCase):
         self.error_received = False
         self.cmd_vel_received = False
         
-        # Jobb oldal közelebb
         mock_scan = self.create_mock_scan(front=3.0, left=3.0, right=1.0)
         
         rospy.loginfo("Publikálok aszimmetrikus scan-t: bal=3.0m (távol), jobb=1.0m (közel)")
@@ -266,7 +243,6 @@ class TestControlPipeline(unittest.TestCase):
         success = self.wait_for_messages(wait_for_cmd_vel=True)
         self.assertTrue(success, "Timeout!")
         
-        # error = (3.0 - 1.0) * 0.3 = 0.6 (pozitív!)
         self.assertGreater(self.received_error_msg.error, 0.0,
                            msg="Jobb fal közelebb → error pozitív kellene legyen")
         
