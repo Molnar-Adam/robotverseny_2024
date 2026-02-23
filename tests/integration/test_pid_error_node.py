@@ -19,8 +19,8 @@ import rostest
 from sensor_msgs.msg import LaserScan
 from control_msgs.msg import PidState
 
-# Timeout konstansok
-MSG_TIMEOUT = 10.0  # Másodpercek, amíg várunk egy üzenetre
+
+MSG_TIMEOUT = 10.0 
 
 
 class TestPidErrorNode(unittest.TestCase):
@@ -30,35 +30,33 @@ class TestPidErrorNode(unittest.TestCase):
     
     def setUp(self):
         """
-        Ez minden teszt ELŐTT lefut (mint a Python unit teszteknél)
+        Ez minden teszt ELŐTT lefut
         
         Mit csinál:
         - Inicializálja a ROS node-ot (test_pid_error_node néven)
-        - Beállítja az üzenet tárolókat (None = még nem érkezett)
+        - Beállítja az üzenet tárolókat
         """
         # ROS node inicializáció teszteléshez
-        # anonymous=True → egyedi név generálás (pl. test_pid_error_node_12345)
         rospy.init_node('test_pid_error_node', anonymous=True)
         
-        # Üzenet tárolók (itt fogjuk tárolni, amit a node-ok küldenek)
+        # Üzenet tárolók
         self.received_error_msg = None
         self.error_msg_received = False
         
-        # Feliratkozunk az /error topicra, hogy lássuk, mit publikál a pid_error.py
+        # Feliratkozás a /error topicra
         self.error_subscriber = rospy.Subscriber(
             '/error', 
             PidState, 
             self.error_callback
         )
         
-        # Publisher a /scan topicra, hogy szimulált LIDAR adatot küldjünk
+        # Publisher a /scan topicra, hogy szimulált LIDAR adat küldésére
         self.scan_publisher = rospy.Publisher(
             '/scan', 
             LaserScan, 
             queue_size=10
         )
         
-        # Várjunk egy kicsit, hogy a node-ok inicializálódjanak
         rospy.sleep(1.0)
         
         rospy.loginfo("TestPidErrorNode setUp completed")
@@ -67,8 +65,7 @@ class TestPidErrorNode(unittest.TestCase):
         """
         Callback függvény: amikor a pid_error.py publikál az /error topicra
         
-        Ez a függvény AUTOMATIKUSAN meghívódik, amikor üzenet érkezik!
-        Hasonló, mint a pid_error.py-ban a callbackLaser() függvény.
+        Ez a függvény AUTOMATIKUSAN meghívódik, amikor üzenet érkezik
         """
         rospy.loginfo(f"Received error message: error={msg.error}, error_dot={msg.error_dot}")
         self.received_error_msg = msg
@@ -82,8 +79,6 @@ class TestPidErrorNode(unittest.TestCase):
             front_distance: Távolság előre (90°), méterben
             left_distance: Távolság balra (180°), méterben  
             right_distance: Távolság jobbra (0°), méterben
-            
-        A LaserScan 360 elemű tömb (0-359°)
         """
         scan = LaserScan()
         scan.header.stamp = rospy.Time.now()
@@ -98,16 +93,13 @@ class TestPidErrorNode(unittest.TestCase):
         scan.range_min = 0.02
         scan.range_max = 10.0
         
-        # 360 elemű tömb inicializálása alapértelmezett értékkel
         scan.ranges = [5.0] * 360
         
-        # Beállítjuk a fontos irányokat:
-        # 0° = jobbra, 90° = előre, 180° = balra (lásd getRange() függvényt)
+        # 0° = jobbra, 90° = előre, 180° = balra
         scan.ranges[90] = right_distance   # 0° -> index 90
         scan.ranges[180] = front_distance  # 90° -> index 180
         scan.ranges[270] = left_distance   # 180° -> index 270
         
-        # Intenzitás értékek (opcionális)
         scan.intensities = []
         
         return scan
@@ -122,15 +114,15 @@ class TestPidErrorNode(unittest.TestCase):
         
         Hogyan működik:
         - A rostest automatikusan elindítja a node-okat a .test fájl alapján
-        - Mi csak ellenőrizzük, hogy létezik-e a topic
+        - Topic létezésének ellenőrzése
         """
         rospy.loginfo("=== TEST 1: Node Initialization ===")
         
-        # Lekérjük az aktív topic-ok listáját
+        # Aktív topicok lekérése
         topics = rospy.get_published_topics()
         topic_names = [topic[0] for topic in topics]
         
-        # Ellenőrizzük, hogy az /error topic létezik-e
+        # /error topic ellenőrzése
         # Ha a pid_error.py fut, akkor publikál erre a topicra
         self.assertIn('/error', topic_names, 
                       "A pid_error.py node nem publikál az /error topicra!")
@@ -163,22 +155,21 @@ class TestPidErrorNode(unittest.TestCase):
             right_distance=2.0   # Jobb oldal
         )
         
-        # Publikáljuk a szimulált scan-t
+        # Szimulált scan publikálása
         rospy.loginfo("Publikálok szimulált LaserScan-t: bal=2.0m, jobb=2.0m")
         self.scan_publisher.publish(mock_scan)
         
-        # Várunk, hogy a pid_error.py feldolgozza és publikáljon /error-t
+        # Várakozás, amíg a pid_error.py feldolgozza és publikáljon /error-t
         timeout = rospy.Time.now() + rospy.Duration(MSG_TIMEOUT)
         rate = rospy.Rate(10)  # 10 Hz ellenőrzés
         
         while not self.error_msg_received and rospy.Time.now() < timeout:
             rate.sleep()
         
-        # Ellenőrizzük, hogy érkezett-e üzenet
         self.assertTrue(self.error_msg_received, 
                         "Nem érkezett PidState üzenet az /error topicra!")
         
-        # Ellenőrizzük, hogy az error értéke ~0
+        # Ellenőrzés: error = ~0
         # followSimple: error = (left - right) * 0.3 = (2.0 - 2.0) * 0.3 = 0.0
         self.assertIsNotNone(self.received_error_msg)
         self.assertAlmostEqual(self.received_error_msg.error, 0.0, places=2,
@@ -213,7 +204,6 @@ class TestPidErrorNode(unittest.TestCase):
         rospy.loginfo("Publikálok szimulált LaserScan-t: bal=1.0m, jobb=3.0m")
         self.scan_publisher.publish(mock_scan)
         
-        # Várunk az /error üzenetre
         timeout = rospy.Time.now() + rospy.Duration(MSG_TIMEOUT)
         rate = rospy.Rate(10)
         
@@ -223,7 +213,7 @@ class TestPidErrorNode(unittest.TestCase):
         self.assertTrue(self.error_msg_received, 
                         "Nem érkezett PidState üzenet!")
         
-        # Ellenőrizzük: error = (1.0 - 3.0) * 0.3 = -0.6
+        # Ellenőrzés: error = (1.0 - 3.0) * 0.3 = -0.6
         expected_error = (1.0 - 3.0) * 0.3  # = -0.6
         self.assertAlmostEqual(self.received_error_msg.error, expected_error, places=1,
                                msg=f"Bal közelebb esetén error={expected_error} kellene legyen")
@@ -283,7 +273,7 @@ if __name__ == '__main__':
         - 3. paraméter: teszt osztály
     """
     rostest.rosrun(
-        'megoldas_gyor24',  # Csomagunk neve
-        'test_pid_error_node',  # Teszt azonosító
+        'megoldas_gyor24',  
+        'test_pid_error_node',  
         TestPidErrorNode
     )

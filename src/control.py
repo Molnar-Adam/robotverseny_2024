@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 '''
 2018 Varundev Suresh Babu (University of Virginia)
                 MIT License

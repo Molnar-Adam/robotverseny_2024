@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<!--
+ROS Integration Test: Isolated control.py node
+==============================================
+
+Ez a teszt az izolált control láncot ellenőrzi:
+    /error (PidState) -> control.py -> /cmd_vel (Twist)
+
+Egy node fut a teszt alatt:
+    1. control.py - /error bemenetből /cmd_vel kimenet
+
+A teszt közvetlenül PidState üzeneteket küld az /error topicra,
+majd ellenőrzi a /cmd_vel válasz irányát és alap viselkedését.
+
+Használat:
+    rostest robotverseny_2024 test_control_node_integration.test
+-->
+<launch>
+    <node
+        pkg="megoldas_gyor24"
+        type="control.py"
+        name="control"
+        output="screen"
+        launch-prefix="python3" />
+
+    <test
+        test-name="control_node_integration_test"
+        pkg="megoldas_gyor24"
+        type="test_control_node.py"
+        launch-prefix="python3"
+        time-limit="60.0" />
+</launch>

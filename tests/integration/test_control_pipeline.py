@@ -49,7 +49,7 @@ class TestControlPipeline(unittest.TestCase):
         self.received_cmd_vel_msg = None
         self.cmd_vel_received = False
         
-        # Subscribers - hallgatjuk a pipeline kimeneteit
+        # Subscribers
         self.error_subscriber = rospy.Subscriber(
             '/error', 
             PidState, 
@@ -69,7 +69,7 @@ class TestControlPipeline(unittest.TestCase):
             queue_size=10
         )
         
-        rospy.sleep(2.0)  # Hosszabb várakozás 2 node inicializálásához
+        rospy.sleep(2.0)
         rospy.loginfo("TestControlPipeline setUp completed")
     
     def error_callback(self, msg):
@@ -117,7 +117,7 @@ class TestControlPipeline(unittest.TestCase):
         rate = rospy.Rate(10)
         
         while rospy.Time.now() < timeout:
-            # Ellenőrizzük, hogy minden szükséges üzenet megérkezett-e
+            # Ellenőrzése: minden szükséges üzenet megérkezett-e
             error_ok = self.error_received
             cmd_vel_ok = self.cmd_vel_received if wait_for_cmd_vel else True
             
@@ -127,7 +127,6 @@ class TestControlPipeline(unittest.TestCase):
             
             rate.sleep()
         
-        # Timeout lejárt
         rospy.logwarn(f"Timeout! error_received={self.error_received}, cmd_vel_received={self.cmd_vel_received}")
         return False
     
@@ -156,7 +155,7 @@ class TestControlPipeline(unittest.TestCase):
         rospy.loginfo("Publikálok szimulált scan-t a pipeline-ba...")
         self.scan_publisher.publish(mock_scan)
         
-        # Várunk, hogy a TELJES pipeline feldolgozza
+        # Várakozás a teljes PIPELINE feldolgozására
         success = self.wait_for_messages(wait_for_cmd_vel=True)
         
         # Assertions
@@ -167,7 +166,7 @@ class TestControlPipeline(unittest.TestCase):
         rospy.loginfo("✓ A teljes pipeline működik: /scan → /error → /cmd_vel")
     
     # ============================================
-    # TESZT 2: Szimmetrikus Eset (nincs hiba)
+    # TESZT 2: Szimmetrikus Eset
     # ============================================
     
     def test_2_symmetric_zero_error(self):
@@ -193,12 +192,12 @@ class TestControlPipeline(unittest.TestCase):
         success = self.wait_for_messages(wait_for_cmd_vel=True)
         self.assertTrue(success, "Timeout a szimmetrikus esetben!")
         
-        # Ellenőrizzük az error értéket
+        # Error ellenőrzése
         # followSimple: error = (2.5 - 2.5) * 0.3 = 0.0
         self.assertAlmostEqual(self.received_error_msg.error, 0.0, places=1,
                                msg="Szimmetrikus esetben error ≈ 0 kellene legyen")
         
-        # Ellenőrizzük a cmd_vel-t
+        # cmd_vel ellenőrzése
         # Ha error ≈ 0 → sebesség magas kellene legyen (simple mode)
         self.assertGreater(self.received_cmd_vel_msg.linear.x, 0.0,
                            msg="Szimmetrikus esetben a robot mozogjon előre!")

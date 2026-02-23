@@ -16,76 +16,18 @@ Használat:
     rostest robotverseny_2024 test_pid_error_integration.test
 -->
 <launch>
-    <!-- 
-    ======================================================
-    TESZT ALATT ÁLLÓ NODE
-    ======================================================
-    
-    Elindítjuk a pid_error.py node-ot, amit tesztelni akarunk.
-    
-    Paraméterek:
-        - pkg: csomag neve (package.xml)
-        - type: szkript fájl neve (futtatható Python fájl)
-        - name: node neve (ROS névtérben)
-        - output: "screen" = látjuk a logokat a konzolon
-    -->
     <node 
         pkg="megoldas_gyor24" 
         type="pid_error.py" 
         name="pid_error" 
-        output="screen">
-        
-        <!-- 
-        Node paraméterek (ha szükséges)
-        Például: 
-        <param name="some_param" value="123"/>
-        -->
+        output="screen"
+        launch-prefix="python3">
     </node>
-    
-    <!-- 
-    ======================================================
-    TESZT NODE
-    ======================================================
-    
-    Ez NEM <node>, hanem <test> elem!
-    
-    Különbségek:
-        - <node>: testrő futtatható node
-        - <test>: unit teszt, ami ellenőrzi a node-okat
-    
-    A teszt akkor sikeres, ha:
-        - Minden unittest.TestCase teszt PASS
-        - Nincs timeout (time-limit="60.0")
-    
-    Paraméterek:
-        - test-name: teszt azonosító (megjelenik a riportban)
-        - pkg: csomag neve
-        - type: teszt szkript fájl
-        - time-limit: max futási idő másodpercben (60s)
-    -->
     <test 
         test-name="pid_error_integration_test" 
         pkg="megoldas_gyor24" 
         type="test_pid_error_node.py"
+        launch-prefix="python3"
         time-limit="60.0">
-        
-        <!-- 
-        Teszt paraméterek (ha szükséges)
-        -->
     </test>
-    
-    <!-- 
-    ======================================================
-    OPCIONÁLIS: TOVÁBBI NODE-OK
-    ======================================================
-    
-    Ha más node-okra is szükség van a teszthez, itt indíthatjuk:
-    
-    Példa - rosbag replay (LIDAR adatok lejátszása):
-    <node pkg="rosbag" type="play" name="rosbag_play" 
-          args="-clock test_data.bag" />
-    
-    Példa - roscore már fut alapból, nem kell külön indítani
-    -->
-    
 </launch>
