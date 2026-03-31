@@ -55,30 +55,7 @@ TESZT → /scan → pid_error.py → /error → control.py → /cmd_vel → TESZ
 
 **Összes teszt:** 4 db
 
-### 3. `test_control_node.py` + `test_control_node_integration.test`
-
-**Tesztelt komponens:** `control.py` node (izolált)
-
-**Pipeline:**
-```
-TESZT → /error → control.py → /cmd_vel → TESZT
-```
-
-**Tesztesetek:**
-- ✅ Node inicializáció (`/cmd_vel` publikáció)
-- ✅ Nulla hiba esetén egyenes kormányzás (`angular.z ≈ 0`)
-- ✅ Negatív hiba esetén jobbra fordulás (`angular.z < 0`)
-- ✅ Pozitív hiba esetén balra fordulás (`angular.z > 0`)
-- ✅ **LIMIT:** Simple mode-ban nagy sebesség max 4.0-ra clamp
-- ✅ **LIMIT:** Simple mode-ban sebesség nem lehet negatív (min 0)
-- ✅ **LIMIT:** Nagyon nagy pozitív error → steering valid (nem nan/inf)
-- ✅ **LIMIT:** Nagyon nagy negatív error → steering valid (nem nan/inf)
-
-**Összes teszt:** 8 db
-
----
-
-**Összesen:** 16 integrációs teszt (4 + 4 + 8)
+**Összesen:** 8 integrációs teszt
 
 ---
 
@@ -113,11 +90,6 @@ rostest robotverseny_2024 test_pid_error_integration.test
 **2. Teljes pipeline teszt:**
 ```bash
 rostest robotverseny_2024 test_control_pipeline.test
-```
-
-**3. Izolált control.py node teszt:**
-```bash
-rostest robotverseny_2024 test_control_node_integration.test
 ```
 
 ---
@@ -246,44 +218,7 @@ if __name__ == '__main__':
 
 ---
 
-## � Megjegyzés: Miért nincs pid_error regressziós teszt?
-
-Egy regressziós teszt célja, hogy egy egyszer megjavított hibát megakadályozzon abban, hogy visszatérjen.
-Azonban ebben az esetben a pid_error bal/jobb oldal hibáját az eredeti `test_pid_error_node.py` már elegendően teszteli:
-- `test_3_left_closer_wall_following` → bal közelebb: `error < 0` ellenőrzés
-- `test_4_right_closer_wall_following` → jobb közelebb: `error > 0` ellenőrzés
-
-Ugyanez a regressziós teszt csak **redundancia** lenne, ugyanazt validálná másodrangú átvonalán.
-
-**Jobb megoldás:** Amikor majd a pd_error.py kódot javítják, az eredeti tesztek automatikusan GREEN lesznek,
-és az biztosítja a visszavonulás előzésébenét. Új regressziós teszt nélkül is.
-
----
-## 📋 Tesztek Futtatási Összefoglalója
-
-| Teszt | Parancs | Tesztek | Cél |
-|-------|---------|----------|-----|
-| `pid_error` node | `rostest megoldas_gyor24 test_pid_error_integration.test` | 4 | `pid_error.py` alapfunkció: bal/jobb oldalkezelés |
-| Teljes pipeline | `rostest megoldas_gyor24 test_control_pipeline.test` | 4 | `pid_error` + `control` end-to-end |
-| `control` node | `rostest megoldas_gyor24 test_control_node_integration.test` | 8 | `control.py` alapvető működés + limit clamp-ek |
-| **Összes** | `catkin_make run_tests` | **16** | Minden integrációs teszt |
-
----
-
-## 📝 Jelenlegi Teszt Szériák
-
-### Elkészült ✅
-1. **pid_error alapvető tesztek** (4) - szimmetrikus, bal közelebb, jobb közelebb
-2. **Pipeline integráció** (4) - teljes lánc validálása
-3. **Control node alapvető + limit** (8) - kormányzás, saturáció, edge values
-
-### Tervezett, de még nem implementálva 🔜
-- **Edge case tesztek** (NaN/inf LIDAR, hibás ranges kezelése)
-- **Timeout/watchdog tesztek** (control node inaktivitás kezelése)
-- **Robusztussági tesztek** (hosszú futás, node restart)
-
----
-## �🔧 Hibaelhárítás
+## 🔧 Hibaelhárítás
 
 ### Probléma 1: `rostest: command not found`
 

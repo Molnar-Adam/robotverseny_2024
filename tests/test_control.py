@@ -186,3 +186,36 @@ class TestControl:
 
         assert published_msg.linear.x == pytest.approx(0.16)
         assert published_msg.angular.z == pytest.approx(0.0)
+
+    @patch('control.pub')
+    def test_non_simple_negative_input_overridden_by_mode_speed(self, mock_pub):
+        """Teszt: non-simple módban a sebességszabály felülírja a negatív bemenetet"""
+        mock_data = MockPidState(error=0.0, error_dot=-5.0, frame_id="other")
+
+        control.control(mock_data)
+
+        published_msg = mock_pub.publish.call_args[0][0]
+        assert published_msg.linear.x == pytest.approx(0.16)
+        assert published_msg.angular.z == pytest.approx(0.0)
+
+    @patch('control.pub')
+    def test_tiny_velocity_with_error_drops_to_zero(self, mock_pub):
+        """Teszt: nemnulla hiba + nagyon kicsi velocity -> 0-ra esik"""
+        mock_data = MockPidState(error=0.2, error_dot=0.005, frame_id="simple")
+
+        control.control(mock_data)
+
+        published_msg = mock_pub.publish.call_args[0][0]
+        assert published_msg.linear.x == pytest.approx(0.0)
+        assert published_msg.angular.z == pytest.approx(0.2)
+
+    @patch('control.pub')
+    def test_nan_error_propagates_without_crash(self, mock_pub):
+        """Teszt: NaN error esetén a függvény nem omlik össze"""
+        mock_data = MockPidState(error=float('nan'), error_dot=1.0, frame_id="simple")
+
+        control.control(mock_data)
+
+        published_msg = mock_pub.publish.call_args[0][0]
+        assert math.isnan(published_msg.linear.x)
+        assert math.isnan(published_msg.angular.z)

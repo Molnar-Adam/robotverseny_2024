@@ -9,8 +9,10 @@ import pytest
 import math
 import sys
 import os
+from unittest.mock import MagicMock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+import pid_error
 from pid_error import getRange, followSimple, followCenter
 
 
@@ -58,6 +60,24 @@ class TestGetRange:
         # 300 fok > 269.9, ezért korlátozza 269.9-re
         dist = getRange(mock_scan, 300)
         assert dist == pytest.approx(359.0)
+
+    def test_lower_boundary_minus_90(self):
+        """Teszt: alsó határ (-90 fok) -> első index"""
+        ranges = [1.0] * 360
+        ranges[0] = 7.5
+        mock_scan = MockLaserScan(ranges)
+
+        dist = getRange(mock_scan, -90)
+        assert dist == pytest.approx(7.5)
+
+    def test_upper_boundary_269_9(self):
+        """Teszt: felső határ (269.9 fok) -> utolsó index"""
+        ranges = [1.0] * 360
+        ranges[359] = 4.2
+        mock_scan = MockLaserScan(ranges)
+
+        dist = getRange(mock_scan, 269.9)
+        assert dist == pytest.approx(4.2)
 
 
 
@@ -150,6 +170,34 @@ class TestFollowSimple:
     
         assert curr_dist == 0
 
+    def test_forward_inf_results_stop(self):
+        """Teszt: forward inf -> getRange fallback 0.02 -> megállás"""
+        ranges = [2.0] * 360
+        ranges[60] = 1.0
+        ranges[300] = 1.0
+        ranges[359] = float('inf')
+
+        mock_scan = MockLaserScan(ranges)
+        error, curr_dist, velocity = followSimple(mock_scan)
+
+        assert error == pytest.approx(0.0)
+        assert velocity == pytest.approx(0.0)
+        assert curr_dist == 0
+
+    def test_forward_nan_results_high_velocity(self):
+        """Teszt: forward NaN -> getRange fallback 10.0 -> nagy sebesség"""
+        ranges = [2.0] * 360
+        ranges[60] = 1.0
+        ranges[300] = 1.0
+        ranges[359] = float('nan')
+
+        mock_scan = MockLaserScan(ranges)
+        error, curr_dist, velocity = followSimple(mock_scan)
+
+        assert error == pytest.approx(0.0)
+        assert velocity == pytest.approx(6.0)
+        assert curr_dist == 0
+
 
 
 class TestFollowCenter:
@@ -208,3 +256,17 @@ class TestFollowCenter:
         assert error < 0.0
         # curr_dist = jobb - bal = 3 - 1 = 2 (jobb oldal távolabb)
         assert curr_dist > 0.0
+
+
+class TestPidErrorCallback:
+    def test_callback_laser_publishes_pid_state(self, monkeypatch):
+        """Teszt: callbackLaser kitölti és publikálja a PidState-et"""
+        fake_pub = MagicMock()
+        monkeypatch.setattr(pid_error, 'pubm', fake_pub)
+        monkeypatch.setattr(pid_error, 'followSimple', lambda data: (-0.25, 0, 1.7))
+
+        pid_error.callbackLaser(MockLaserScan([1.0] * 360))
+
+        published_msg = fake_pub.publish.call_args[0][0]
+        assert published_msg.error == pytest.approx(-0.25)
+        assert published_msg.error_dot == pytest.approx(1.7)

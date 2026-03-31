@@ -16,18 +16,23 @@ Használat:
     rostest robotverseny_2024 test_pid_error_integration.test
 -->
 <launch>
+
     <node 
         pkg="megoldas_gyor24" 
         type="pid_error.py" 
         name="pid_error" 
-        output="screen"
-        launch-prefix="python3">
+        output="screen">
+
     </node>
+
     <test 
         test-name="pid_error_integration_test" 
         pkg="megoldas_gyor24" 
         type="test_pid_error_node.py"
-        launch-prefix="python3"
         time-limit="60.0">
+
     </test>
+    
+
+    
 </launch>

@@ -53,6 +53,26 @@ class TestControlNode(unittest.TestCase):
         msg.error_dot = velocity_value
         self.error_publisher.publish(msg)
 
+    def wait_for_connections(self):
+        timeout = rospy.Time.now() + rospy.Duration(MSG_TIMEOUT)
+        rate = rospy.Rate(20)
+
+        while not rospy.is_shutdown() and rospy.Time.now() < timeout:
+            if self.error_publisher.get_num_connections() > 0:
+                return True
+            rate.sleep()
+
+        return False
+
+    def publish_error_and_wait(self, error_value, velocity_value, frame_id='simple', retries=3):
+        for _ in range(retries):
+            self.cmd_vel_received = False
+            self.received_cmd_vel_msg = None
+            self.publish_error(error_value=error_value, velocity_value=velocity_value, frame_id=frame_id)
+            if self.wait_for_cmd_vel():
+                return True
+        return False
+
     def wait_for_cmd_vel(self):
         timeout = rospy.Time.now() + rospy.Duration(MSG_TIMEOUT)
         rate = rospy.Rate(20)
@@ -68,6 +88,7 @@ class TestControlNode(unittest.TestCase):
         topics = rospy.get_published_topics()
         topic_names = [topic[0] for topic in topics]
         self.assertIn('/cmd_vel', topic_names, "A control.py node nem publikál a /cmd_vel topicra!")
+        self.assertTrue(self.wait_for_connections(), "Az /error publisher nem csatlakozott időben a control.py node-hoz!")
 
     def test_2_zero_error_keeps_zero_steering(self):
         self.cmd_vel_received = False
@@ -212,6 +233,30 @@ class TestControlNode(unittest.TestCase):
         )
         
         rospy.loginfo(f"Nagy -error után steering: {self.received_cmd_vel_msg.angular.z}")
+
+    def test_9_first_message_retry_is_handled(self):
+        """Teszt: indulás körüli első publish elvesztése után retry-val még jön /cmd_vel."""
+        self.assertTrue(self.wait_for_connections(), "Nincs kapcsolat az /error topicon!")
+
+        success = self.publish_error_and_wait(error_value=0.2, velocity_value=1.0, frame_id='simple', retries=3)
+
+        self.assertTrue(success, "Retry után sem érkezett /cmd_vel üzenet!")
+        self.assertIsNotNone(self.received_cmd_vel_msg)
+
+    def test_10_repeated_commands_keep_node_responsive(self):
+        """Teszt: több egymás utáni /error üzenetre is folyamatosan válaszol a node."""
+        self.assertTrue(self.wait_for_connections(), "Nincs kapcsolat az /error topicon!")
+
+        success_first = self.publish_error_and_wait(error_value=-0.5, velocity_value=1.0, frame_id='simple', retries=2)
+        self.assertTrue(success_first, "Az első /error után nem érkezett /cmd_vel!")
+        first_angular = self.received_cmd_vel_msg.angular.z
+
+        success_second = self.publish_error_and_wait(error_value=0.5, velocity_value=1.0, frame_id='simple', retries=2)
+        self.assertTrue(success_second, "A második /error után nem érkezett /cmd_vel!")
+        second_angular = self.received_cmd_vel_msg.angular.z
+
+        self.assertLess(first_angular, 0.0, "Az első válasz jobbra fordulást kell mutasson!")
+        self.assertGreater(second_angular, 0.0, "A második válasz balra fordulást kell mutasson!")
 
 
 if __name__ == '__main__':
