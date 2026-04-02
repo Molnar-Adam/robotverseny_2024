@@ -3,6 +3,12 @@
 # `megoldas_gyor24` ROS package
 🤖 Autonóm robotverseny helyszíni fordulójának megoldás mintája.
 
+## Tesztdokumentáció
+
+A teljes tesztleírás és a futtatási parancsok itt találhatók:
+- [tests/README.md](tests/README.md)
+- [tests/integration/README.md](tests/integration/README.md)
+
 # A versenyen használt robot
 Wheeltec / Roboworks Rosbot mini Ackermann robot
 ![main](etc/wheeltec_roboworks_ack01.png)

@@ -8,10 +8,12 @@ add_compile_options(-std=c++11)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+  geometry_msgs
   nav_msgs
   roscpp
   rospy
   std_msgs
+  visualization_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -117,7 +119,7 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
+  include
   ${catkin_INCLUDE_DIRS}
 )
 
@@ -134,7 +136,7 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(path_and_steering src/path_and_steering.cpp)
+add_executable(path_and_steering src/path_and_steering.cpp src/path_and_steering_utils.cpp)
 #add_dependencies(path_and_steering ${PROJECT_NAME}_gencfg)
 target_link_libraries(path_and_steering ${catkin_LIBRARIES})
 
@@ -204,6 +206,16 @@ target_link_libraries(path_and_steering ${catkin_LIBRARIES})
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()
+
+if(CATKIN_ENABLE_TESTING)
+  find_package(rostest REQUIRED)
+  catkin_add_gtest(path_and_steering_utils_test tests/test_path_and_steering_utils.cpp src/path_and_steering_utils.cpp)
+  if(TARGET path_and_steering_utils_test)
+    target_link_libraries(path_and_steering_utils_test ${catkin_LIBRARIES})
+  endif()
+  add_rostest(tests/integration/test_system_pipeline.test)
+  add_rostest(tests/integration/test_path_and_steering_integration.test)
+endif()
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)

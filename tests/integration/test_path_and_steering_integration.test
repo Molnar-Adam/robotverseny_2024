@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<!--
+ROS Integration Test: isolated path_and_steering.cpp node
+
+Pipeline:
+    /odom + /cmd_vel -> path_and_steering.cpp -> /marker_path + /marker_text + /marker_steering
+-->
+<launch>
+    <node
+        pkg="megoldas_gyor24"
+        type="path_and_steering"
+        name="path_and_steering"
+        output="screen"
+    >
+        <param name="path_size" value="4" />
+        <param name="publish_steer_marker" value="true" />
+        <param name="marker_color" value="gradient" />
+    </node>
+
+    <test
+        test-name="path_and_steering_integration_test"
+        pkg="megoldas_gyor24"
+        type="test_path_and_steering_node.py"
+        launch-prefix="python3"
+        time-limit="60.0" />
+</launch>

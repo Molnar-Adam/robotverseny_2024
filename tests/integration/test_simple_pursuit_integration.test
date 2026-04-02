@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<!--
+ROS Integration Test: Isolated simple_pursuit.py node
+=====================================================
+
+Pipeline:
+    /scan (LaserScan) -> simple_pursuit.py -> /cmd_vel (Twist)
+-->
+<launch>
+    <node
+        pkg="megoldas_gyor24"
+        type="simple_pursuit.py"
+        name="simple_pursuit"
+        output="screen"
+        launch-prefix="python3" />
+
+    <test
+        test-name="simple_pursuit_integration_test"
+        pkg="megoldas_gyor24"
+        type="test_simple_pursuit_node.py"
+        launch-prefix="python3"
+        time-limit="60.0" />
+</launch>

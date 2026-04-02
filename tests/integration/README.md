@@ -1,8 +1,8 @@
 # ROS Integrációs Tesztek
 
-Ez a könyvtár a `robotverseny_2024` projekt ROS integrációs tesztjeit tartalmazza.
+Ez a könyvtár a `megoldas_gyor24` projekt ROS integrációs tesztjeit tartalmazza.
 
-## 📚 Mi az integrációs teszt?
+## 📚 Mi az az integrációs teszt?
 
 Az **integrációs tesztek** valós ROS node-ok együttműködését ellenőrzik, ellentétben a unit tesztekkel, amelyek csak izolált függvényeket tesztelnek mock objektumokkal.
 
@@ -19,7 +19,27 @@ Az **integrációs tesztek** valós ROS node-ok együttműködését ellenőrzik
 
 ## 📂 Tesztek Áttekintése
 
-### 1. `test_pid_error_node.py` + `test_pid_error_integration.test`
+### 1. `test_control_node.py` + `test_control_node_integration.test`
+
+**Tesztelt komponens:** `control.py` node (izolált)
+
+**Pipeline:**
+```
+TESZT → /error → control.py → /cmd_vel → TESZT
+```
+
+**Tesztesetek:**
+- ✅ Node inicializáció és topic kapcsolat
+- ✅ Alap kormányzási irányhelyesség (negatív/pozitív error)
+- ✅ Sebesség limitek simple módban (min/max)
+- ✅ Nagy error értékek robusztussága (finite kimenet)
+- ✅ Retry és több egymást követő üzenet kezelése
+
+**Összes teszt:** 10 db
+
+---
+
+### 2. `test_pid_error_node.py` + `test_pid_error_integration.test`
 
 **Tesztelt komponens:** `pid_error.py` node
 
@@ -34,11 +54,11 @@ TESZT → /scan → pid_error.py → /error → TESZT
 - ✅ Bal fal közelebb (error < 0)
 - ✅ Jobb fal közelebb (error > 0)
 
-**Összes teszt:** 4 db
+**Összes teszt:** 6 db
 
 ---
 
-### 2. `test_control_pipeline.py` + `test_control_pipeline.test`
+### 3. `test_control_pipeline.py` + `test_control_pipeline.test`
 
 **Tesztelt komponensek:** `pid_error.py` + `control.py` (teljes pipeline)
 
@@ -53,9 +73,72 @@ TESZT → /scan → pid_error.py → /error → control.py → /cmd_vel → TESZ
 - ✅ Jobbra fordulás (bal fal közelebb)
 - ✅ Balra fordulás (jobb fal közelebb)
 
+**Összes teszt:** 6 db
+
+---
+
+### 4. `test_simple_pursuit_node.py` + `test_simple_pursuit_integration.test`
+
+**Tesztelt komponens:** `simple_pursuit.py` node (izolált)
+
+**Pipeline:**
+```
+TESZT → /scan → simple_pursuit.py → /cmd_vel → TESZT
+```
+
+**Tesztesetek:**
+- ✅ Node inicializáció és topic kapcsolat
+- ✅ /scan bemenetre érkezik /cmd_vel válasz
+- ✅ Reverse-zone közeli akadály eset kezelése
+- ✅ Több egymás utáni scan esetén robusztus működés
+
 **Összes teszt:** 4 db
 
-**Összesen:** 8 integrációs teszt
+---
+
+### 5. `test_path_and_steering_node.py` + `test_path_and_steering_integration.test`
+
+**Tesztelt komponens:** `path_and_steering.cpp` node (izolált)
+
+**Pipeline:**
+```
+TESZT -> /odom + /cmd_vel -> path_and_steering.cpp -> /marker_path + /marker_text + /marker_steering -> TESZT
+```
+
+**Tesztesetek:**
+- ✅ Node inicializacio es topic kapcsolat
+- ✅ /odom + /cmd_vel hatasara megjelennek a marker es path uzenetek
+- ✅ A text marker a sebesseget helyesen formazza
+- ✅ A path hossz a `path_size` parameternel nem nott tovabb
+
+**Összes teszt:** 2 db
+
+---
+
+### 6. `test_system_pipeline.py` + `test_system_pipeline.test`
+
+**Tesztelt komponensek:** `pid_error.py` + `control.py` + `path_and_steering.cpp`
+
+**Pipeline:**
+```
+TESZT -> /scan -> pid_error.py -> /error -> control.py -> /cmd_vel -> path_and_steering.cpp
+TESZT -> /odom -> path_and_steering.cpp -> /marker_path + /marker_text + /marker_steering -> TESZT
+```
+
+**Tesztesetek:**
+- ✅ A teljes vezérlési lánc egyszerre működik
+- ✅ A `pid_error.py` helyes hibát számít a bemenő scan alapján
+- ✅ A `control.py` helyes `cmd_vel` parancsot publikál
+- ✅ A `path_and_steering.cpp` fogadja a parancsot és marker kimenetet ad
+
+**Összes teszt:** 1 db
+
+**Futtatás:**
+```bash
+rostest megoldas_gyor24 test_system_pipeline.test
+```
+
+**Összesen:** 29 teszt (28 integrációs teszt + 1 rendszerteszt)
 
 ---
 
@@ -73,9 +156,9 @@ TESZT → /scan → pid_error.py → /error → control.py → /cmd_vel → TESZ
 
 3. **Python szkriptek futtathatók:**
    ```bash
-   chmod +x src/robotverseny_2024/src/pid_error.py
-   chmod +x src/robotverseny_2024/src/control.py
-   chmod +x src/robotverseny_2024/tests/integration/*.py
+    chmod +x src/megoldas_gyor24/src/pid_error.py
+    chmod +x src/megoldas_gyor24/src/control.py
+    chmod +x src/megoldas_gyor24/tests/integration/*.py
    ```
 
 ---
@@ -84,12 +167,22 @@ TESZT → /scan → pid_error.py → /error → control.py → /cmd_vel → TESZ
 
 **1. pid_error.py node teszt:**
 ```bash
-rostest robotverseny_2024 test_pid_error_integration.test
+rostest megoldas_gyor24 test_pid_error_integration.test
 ```
 
 **2. Teljes pipeline teszt:**
 ```bash
-rostest robotverseny_2024 test_control_pipeline.test
+rostest megoldas_gyor24 test_control_pipeline.test
+```
+
+**3. simple_pursuit node teszt:**
+```bash
+rostest megoldas_gyor24 test_simple_pursuit_integration.test
+```
+
+**4. path_and_steering node teszt:**
+```bash
+rostest megoldas_gyor24 test_path_and_steering_integration.test
 ```
 
 ---
@@ -97,7 +190,7 @@ rostest robotverseny_2024 test_control_pipeline.test
 ### Verbose Kimenet (Részletes Logok)
 
 ```bash
-rostest robotverseny_2024 test_pid_error_integration.test --text
+rostest megoldas_gyor24 test_pid_error_integration.test --text
 ```
 
 A `--text` flag minden log üzenetet kiír a konzolra.
@@ -106,7 +199,7 @@ A `--text` flag minden log üzenetet kiír a konzolra.
 
 ### Minden Integrációs Teszt Futtatása
 
-Ha a `CMakeLists.txt`-ben beállítottad a `catkin_add_rostest()` sorokat:
+Ha a `CMakeLists.txt`-ben beállítottad az `add_rostest()` sorokat:
 
 ```bash
 catkin_make run_tests
@@ -166,7 +259,7 @@ FAILED (failures=1)
 
 **Debugging:** Nézd meg a részletes logokat:
 ```bash
-rostest robotverseny_2024 test_pid_error_integration.test --text
+rostest megoldas_gyor24 test_pid_error_integration.test --text
 ```
 
 ---
@@ -178,10 +271,10 @@ rostest robotverseny_2024 test_pid_error_integration.test --text
 ```xml
 <launch>
     <!-- 1. Teszt alatt álló node-ok -->
-    <node pkg="robotverseny_2024" type="pid_error.py" name="pid_error"/>
+    <node pkg="megoldas_gyor24" type="pid_error.py" name="pid_error"/>
     
     <!-- 2. Teszt szkript -->
-    <test test-name="my_test" pkg="robotverseny_2024" type="test_script.py"/>
+    <test test-name="my_test" pkg="megoldas_gyor24" type="test_script.py"/>
 </launch>
 ```
 
@@ -288,7 +381,7 @@ test:
 
 ## ✅ Összegzés
 
-- 8 integrációs teszt fut valós ROS node-okkal
+- 28 integrációs teszt fut valós ROS node-okkal
 - Pipeline szintű tesztelés (LIDAR → PID → motor)
 - Timeout-ok biztosítják, hogy a tesztek nem ragadnak be végtelenül
 - Callback pattern: aszinkron üzenet fogadás

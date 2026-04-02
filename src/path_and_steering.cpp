@@ -12,6 +12,8 @@
 #include <geometry_msgs/PointStamped.h>
 #include <geometry_msgs/Twist.h>
 
+#include "megoldas_gyor24/path_and_steering_utils.h"
+
 const double wheelbase = 0.3187; // documention based | measured: ~32 cm
 double steering_angle, speed_cmd; 
 int path_size;
@@ -24,11 +26,6 @@ std::string marker_color;
 ros::Publisher marker_pub, path_pub, text_pub;
 nav_msgs::Path path;
 geometry_msgs::Pose actual_pose;
-
-
-float mapval(float x, float in_min, float in_max, float out_min, float out_max){
-    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
 
 
 // Callback for /cmd_vel
@@ -86,58 +83,22 @@ void loop(){
                 ROS_INFO_STREAM("Higher than " << max << "m/s (max) current ref: "<< speed_cmd << " m/s");
             }
             else if( 0 < speed_cmd && speed_cmd < max / 2){
-                float c0 = mapval(speed_cmd, 0, max / 2, green_r, blue_r);
-                float c1 = mapval(speed_cmd, 0, max / 2, green_g, blue_g);
-                float c2 = mapval(speed_cmd, 0, max / 2, green_b, blue_b);
+                float c0 = path_and_steering_utils::MapValue(speed_cmd, 0, max / 2, green_r, blue_r);
+                float c1 = path_and_steering_utils::MapValue(speed_cmd, 0, max / 2, green_g, blue_g);
+                float c2 = path_and_steering_utils::MapValue(speed_cmd, 0, max / 2, green_b, blue_b);
                 steer_marker.color.r = c0; steer_marker.color.g = c1; steer_marker.color.b = c2;
             }
             else{
-                float c0 = mapval(speed_cmd, max / 2, max, blue_r, red_r);
-                float c1 = mapval(speed_cmd, max / 2, max, blue_g, red_g);
-                float c2 = mapval(speed_cmd, max / 2, max, blue_b, red_b);   
+                float c0 = path_and_steering_utils::MapValue(speed_cmd, max / 2, max, blue_r, red_r);
+                float c1 = path_and_steering_utils::MapValue(speed_cmd, max / 2, max, blue_g, red_g);
+                float c2 = path_and_steering_utils::MapValue(speed_cmd, max / 2, max, blue_b, red_b);
                 steer_marker.color.r = c0; steer_marker.color.g = c1; steer_marker.color.b = c2;
             }
 
         }
         steer_marker.color.a = 1.0;
         steer_marker.lifetime = ros::Duration();
-        double marker_pos_x = 0.0, marker_pos_y = 0.0, theta = 0.0;
-        if(speed_cmd < 0){ // negative speed
-            for (int i = 0; i < 10; i++)
-            {
-                marker_pos_x += 0.01 * 10 * cos(theta);
-                marker_pos_y += 0.01 * 10 * sin(theta);
-                theta += 0.01 * 10 / wheelbase * tan(steering_angle);
-                geometry_msgs::Point p;
-                p.x = marker_pos_x;
-                p.y = marker_pos_y;
-                steer_marker.points.push_back(p);
-            }            
-            reverse(steer_marker.points.begin(), steer_marker.points.end());
-            marker_pos_x = 0.0, marker_pos_y = 0.0, theta = 0.0;
-            for (int i = 0; i < 10 + int(-20 * speed_cmd); i++)
-            {
-                marker_pos_x -= 0.01 * 10 * cos(theta);
-                marker_pos_y -= 0.01 * 10 * sin(theta);
-                theta -= 0.01 * 10 / wheelbase * tan(steering_angle);
-                geometry_msgs::Point p;
-                p.x = marker_pos_x;
-                p.y = marker_pos_y;
-                steer_marker.points.push_back(p);
-            }
-        }
-        else{
-            for (int i = 0; i < 10 + int(20 * speed_cmd); i++)
-            {
-                marker_pos_x += 0.01 * 10 * cos(theta);
-                marker_pos_y += 0.01 * 10 * sin(theta);
-                theta += 0.01 * 10 / wheelbase * tan(steering_angle);
-                geometry_msgs::Point p;
-                p.x = marker_pos_x;
-                p.y = marker_pos_y;
-                steer_marker.points.push_back(p);
-            }
-        }
+        steer_marker.points = path_and_steering_utils::BuildSteeringPoints(speed_cmd, steering_angle, wheelbase);
         marker_pub.publish(steer_marker);
         steer_marker.points.clear();
     }
@@ -150,11 +111,7 @@ void loop(){
     path.poses.push_back(pose);
     path.header.stamp = ros::Time::now();
     path.poses.push_back(pose);
-    // keep only the last n (path_size) path message
-    if (path.poses.size() > path_size){
-        int shift = path.poses.size() - path_size;
-        path.poses.erase(path.poses.begin(), path.poses.begin() + shift);
-    }
+    path_and_steering_utils::TrimPath(path, path_size);
     path_pub.publish(path);
 
     visualization_msgs::Marker text_marker;
